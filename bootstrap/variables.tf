@@ -19,3 +19,15 @@ variable "lock_table_name" {
   type        = string
   default     = "tfstate-lock-multienv"
 }
+
+variable "github_owner" {
+  description = "Usuario ou organizacao do GitHub dono do repositorio."
+  type        = string
+  default     = "lucaspenhoela-personal"
+}
+
+variable "github_repo" {
+  description = "Nome do repositorio autorizado a assumir a role do CI."
+  type        = string
+  default     = "terraform-multi-env-foundation"
+}

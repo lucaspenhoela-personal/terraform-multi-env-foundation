@@ -18,3 +18,8 @@ output "backend_config_hint" {
     encrypt        = true
   HINT
 }
+
+output "github_actions_role_arn" {
+  description = "ARN da role a ser usada no workflow do GitHub Actions."
+  value       = aws_iam_role.github_actions_plan.arn
+}
