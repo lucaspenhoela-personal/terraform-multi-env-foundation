@@ -1,0 +1,138 @@
+name: terraform plan
+
+# Roda em pull request para main. Nao roda em push direto: o objetivo e
+# revisar mudanca antes do merge, e apply continua sendo manual.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '**.tf'
+      - '**.tfvars'
+      - '**.tftpl'
+      - '.github/workflows/terraform-plan.yml'
+
+# Cancela execucoes anteriores do mesmo PR. Evita dois jobs disputando o
+# lock do state no DynamoDB.
+concurrency:
+  group: terraform-plan-${{ github.ref }}
+  cancel-in-progress: true
+
+# Permissoes minimas. id-token e obrigatorio para OIDC: e o que autoriza o
+# job a solicitar o token JWT. contents:read para o checkout.
+# pull-requests:write para comentar o resultado no PR.
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+env:
+  TF_VERSION: '1.13.0'
+  AWS_REGION: 'us-east-1'
+  TF_IN_AUTOMATION: 'true'
+
+jobs:
+  validate:
+    name: fmt e validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive -diff
+
+      # validate nao precisa de credencial nem de backend, entao usa
+      # -backend=false: o init so instala providers e modulos.
+      - name: terraform init sem backend
+        run: terraform init -backend=false
+
+      - name: terraform validate
+        run: terraform validate -no-color
+
+      # Valida os modulos isoladamente. Um modulo pode estar quebrado de um
+      # jeito que so aparece quando validado fora do contexto da raiz.
+      - name: validate dos modulos
+        run: |
+          for dir in modules/*/; do
+            echo "--- $dir"
+            terraform -chdir="$dir" init -backend=false
+            terraform -chdir="$dir" validate -no-color
+          done
+
+  plan:
+    name: plan ${{ matrix.environment }}
+    runs-on: ubuntu-latest
+    needs: validate
+
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [dev, staging, prod]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      # Troca o token OIDC do GitHub por credencial temporaria da AWS.
+      # Nenhuma access key e armazenada; a credencial expira em 1 hora.
+      - name: assume role via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: gha-plan-${{ matrix.environment }}
+
+      - name: confirma identidade assumida
+        run: aws sts get-caller-identity
+
+      - name: terraform init
+        run: terraform init -input=false
+
+      - name: seleciona workspace
+        run: terraform workspace select ${{ matrix.environment }}
+
+      # -detailed-exitcode: 0 sem mudanca, 1 erro, 2 com mudanca a aplicar.
+      # 2 nao e falha, entao tratamos os codigos explicitamente.
+      - name: terraform plan
+        id: plan
+        run: |
+          set +e
+          terraform plan -no-color -input=false \
+            -var-file="envs/${{ matrix.environment }}.tfvars" \
+            -detailed-exitcode -out=tfplan > plan.txt 2>&1
+          code=$?
+          set -e
+          tail -c 60000 plan.txt
+          if [ "$code" = "1" ]; then
+            echo "plan falhou"
+            exit 1
+          fi
+
+      - name: comenta resumo no PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let summary = 'plan indisponivel';
+            try {
+              const out = fs.readFileSync('plan.txt', 'utf8');
+              const line = out.split('\n').find(l => l.startsWith('Plan:') || l.startsWith('No changes'));
+              if (line) summary = line;
+            } catch (e) {}
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '**${{ matrix.environment }}**: ' + summary
+            });
+
+      # O arquivo de plan contem valores do state e nao deve
