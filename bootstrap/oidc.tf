@@ -33,15 +33,32 @@ data "aws_iam_policy_document" "github_assume_role" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # ESTA e a condicao critica. O "sub" do token identifica repositorio,
-    # branch e evento. Sem esta restricao, QUALQUER repositorio do GitHub
-    # no mundo poderia assumir esta role. E o erro de configuracao mais
-    # comum e mais grave em OIDC.
+    # ESTA e a condicao critica. Sem restringir a origem, QUALQUER
+    # repositorio do GitHub no mundo poderia assumir esta role. E o erro de
+    # configuracao mais comum e mais grave em OIDC.
+    #
+    # A restricao usa o claim "repository", nao o "sub". Motivo: quando a
+    # organizacao ou a conta habilita a inclusao de IDs nos claims, o sub
+    # passa a ter a forma
+    #   repo:owner@<owner_id>/repo@<repo_id>:pull_request
+    # e um padrao escrito como repo:owner/repo:* deixa de casar. O claim
+    # "repository" permanece "owner/repo" nos dois casos, entao a condicao
+    # nao depende dessa configuracao do GitHub.
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:repository"
+      values   = ["${var.github_owner}/${var.github_repo}"]
+    }
+
+    # Restringe tambem o tipo de evento, com wildcard nas extremidades para
+    # tolerar os IDs opcionais no meio do sub. Sem isso, um workflow em
+    # qualquer branch ou tag do repositorio poderia assumir a role.
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
       values = [
-        "repo:${var.github_owner}/${var.github_repo}:*"
+        "repo:${var.github_owner}*/${var.github_repo}*:pull_request",
+        "repo:${var.github_owner}*/${var.github_repo}*:ref:refs/heads/main"
       ]
     }
   }

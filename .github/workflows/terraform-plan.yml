@@ -91,16 +91,6 @@ jobs:
 
       # Troca o token OIDC do GitHub por credencial temporaria da AWS.
       # Nenhuma access key e armazenada; a credencial expira em 1 hora.
-      # PASSO TEMPORARIO DE DIAGNOSTICO. Remover apos resolver o OIDC.
-      # Decodifica o payload do JWT e imprime apenas sub, aud e repository,
-      # para comparar com a condicao da trust policy. O token completo nao
-      # e impresso.
-      - name: inspeciona claims do token OIDC
-        run: |
-          TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value')
-          echo "$TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq '{sub, aud, repository, iss}'
-
       - name: assume role via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
