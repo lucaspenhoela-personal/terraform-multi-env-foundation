@@ -50,11 +50,19 @@ jobs:
       - name: terraform init sem backend
         run: terraform init -backend=false
 
+      # TF_WORKSPACE define o workspace sem exigir backend configurado.
+      # Necessario porque a validacao da variavel "environment" nos modulos
+      # rejeita o workspace "default", que e o valor de terraform.workspace
+      # quando o init roda com -backend=false.
       - name: terraform validate
+        env:
+          TF_WORKSPACE: dev
         run: terraform validate -no-color
 
       # Valida os modulos isoladamente. Um modulo pode estar quebrado de um
       # jeito que so aparece quando validado fora do contexto da raiz.
+      # Aqui nao ha terraform.workspace envolvido: os modulos recebem
+      # environment como variavel sem default, entao validate nao a avalia.
       - name: validate dos modulos
         run: |
           for dir in modules/*/; do
@@ -135,4 +143,7 @@ jobs:
               body: '**${{ matrix.environment }}**: ' + summary
             });
 
-      # O arquivo de plan contem valores do state e nao deve
+      # O arquivo de plan contem valores do state e nao deve virar artefato.
+      - name: remove arquivo de plan
+        if: always()
+        run: rm -f tfplan plan.txt
