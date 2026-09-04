@@ -14,3 +14,15 @@ output "public_subnet_ids" {
 output "private_subnet_ids" {
   value = module.network.private_subnet_ids
 }
+
+output "app_security_group_id" {
+  value = module.security.app_security_group_id
+}
+
+output "db_security_group_id" {
+  value = module.security.db_security_group_id
+}
+
+output "instance_profile_name" {
+  value = module.security.instance_profile_name
+}

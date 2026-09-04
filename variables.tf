@@ -26,3 +26,15 @@ variable "enable_nat_gateway" {
   type        = bool
   default     = false
 }
+
+variable "ssh_allowed_cidrs" {
+  description = "CIDRs autorizados a SSH. Vazio por padrao; prefira SSM."
+  type        = list(string)
+  default     = []
+}
+
+variable "enable_ssm_access" {
+  description = "Habilita acesso via SSM Session Manager nas instancias."
+  type        = bool
+  default     = true
+}
