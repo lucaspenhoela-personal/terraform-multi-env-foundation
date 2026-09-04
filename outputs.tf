@@ -26,3 +26,11 @@ output "db_security_group_id" {
 output "instance_profile_name" {
   value = module.security.instance_profile_name
 }
+
+output "instance_ids" {
+  value = module.compute.instance_ids
+}
+
+output "ami_id" {
+  value = module.compute.ami_id
+}

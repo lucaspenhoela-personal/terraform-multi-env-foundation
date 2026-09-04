@@ -33,3 +33,20 @@ module "security" {
   ssh_allowed_cidrs = var.ssh_allowed_cidrs
   enable_ssm_access = var.enable_ssm_access
 }
+
+# ATENCAO CUSTO: este modulo cria instancias EC2, que geram cobranca nesta
+# conta (free tier de EC2 expirado). Por padrao a variavel "instances" e um
+# mapa vazio, entao nenhuma instancia e criada. Preencher instances em um
+# tfvars e uma decisao deliberada de gastar dinheiro.
+module "compute" {
+  source = "./modules/compute"
+
+  project     = var.project
+  environment = local.environment
+
+  subnet_ids            = module.network.private_subnet_ids
+  security_group_ids    = [module.security.app_security_group_id]
+  instance_profile_name = module.security.instance_profile_name
+
+  instances = var.instances
+}

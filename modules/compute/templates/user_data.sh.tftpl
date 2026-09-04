@@ -1,0 +1,14 @@
+#!/bin/bash
+set -euo pipefail
+
+# Arquivo gerado pelo Terraform via templatefile(). Os placeholders abaixo
+# sao substituidos em tempo de plan pelas variaveis passadas no main.tf.
+# Atencao ao editar: qualquer sequencia de dolar seguida de chaves e tratada
+# como expressao HCL. Para um dolar literal, dobre o caractere.
+
+echo "Ambiente: ${environment}" > /etc/instance-metadata
+echo "Papel: ${instance_role}" >> /etc/instance-metadata
+
+dnf -y update
+dnf -y install amazon-ssm-agent
+systemctl enable --now amazon-ssm-agent

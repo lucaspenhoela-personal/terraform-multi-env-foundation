@@ -38,3 +38,19 @@ variable "enable_ssm_access" {
   type        = bool
   default     = true
 }
+
+variable "instances" {
+  description = <<-DESC
+    Mapa de instancias EC2 a provisionar. Vazio por padrao: EC2 gera custo
+    nesta conta. Ver modules/compute/variables.tf para o formato.
+  DESC
+
+  type = map(object({
+    instance_type = string
+    volume_size   = optional(number, 8)
+    role          = optional(string, "app")
+    az_index      = optional(number, 0)
+  }))
+
+  default = {}
+}
