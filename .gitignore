@@ -1,0 +1,25 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+*.tfplan
+
+# tfvars: ignorar por padrao, liberar apenas os de ambiente (sem segredos)
+*.tfvars
+*.tfvars.json
+!envs/*.tfvars
+*.secret.tfvars
+
+# Editor e SO
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
